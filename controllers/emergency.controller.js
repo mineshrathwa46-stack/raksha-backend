@@ -8,12 +8,24 @@ const alertSchema = z.object({ transitSessionId: z.string(), message: z.string()
 async function createAlert(req, res, next) {
   try {
     const data = alertSchema.parse(req.body);
-    const session = await TransitSession.findOne({ _id: data.transitSessionId, userId: req.user._id });
-    if (!session) return res.status(404).json({ message: 'Transit session not found' });
-    const alert = await EmergencyAlert.create(data);
-    await notifyEmergency(alert);
+    const result = await createEmergencyAlertRecord({
+      userId: req.user._id,
+      transitSessionId: data.transitSessionId,
+      message: data.message,
+      triggeredBy: data.triggeredBy
+    });
+    if (!result) return res.status(404).json({ message: 'Transit session not found' });
+    const { alert } = result;
     res.status(201).json(alert);
   } catch (error) { next(error); }
+}
+
+async function createEmergencyAlertRecord({ userId, transitSessionId, message, triggeredBy }) {
+  const session = await TransitSession.findOne({ _id: transitSessionId, userId });
+  if (!session) return null;
+  const alert = await EmergencyAlert.create({ transitSessionId, message, triggeredBy });
+  const notification = await notifyEmergency(alert);
+  return { alert, notification };
 }
 
 async function getAlerts(req, res, next) {
@@ -24,4 +36,4 @@ async function getAlerts(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { createAlert, getAlerts };
+module.exports = { createAlert, createEmergencyAlertRecord, getAlerts };

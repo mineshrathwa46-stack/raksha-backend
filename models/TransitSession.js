@@ -13,9 +13,20 @@ const transitSessionSchema = new mongoose.Schema({
    destination: String,
   vehicleType: String,
   vehicleNumber: String,
+  driverName: String,
+  trustedContacts: [String],
+  selectedRouteId: String,
+  routeGeometry: [ [Number] ],
+  routeDistance: Number,
+  routeDuration: Number,
+  routeSafetyScore: Number,
+  routeSafetyFactors: [String],
+  origin: pointSchema,
   currentLocation: pointSchema,
+  routeDeviationState: { type: String, enum: ['ON_ROUTE', 'POSSIBLE_DEVIATION', 'DEVIATED'], default: 'ON_ROUTE' },
+  consecutiveOffRouteUpdates: { type: Number, default: 0, min: 0 },
   riskScore: { type: Number, default: 0, min: 0, max: 100 },
-  riskLevel: { type: String, enum: ['low', 'medium', 'high'], default: 'low' }
+  riskLevel: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'low' }
 }, { timestamps: true });
 
 transitSessionSchema.index({ currentLocation: '2dsphere' });

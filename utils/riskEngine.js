@@ -6,8 +6,8 @@ function calculateRiskScore(signals = {}) {
     Number(signals.timeRisk || 0)
   ));
 
-  const riskLevel = score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
-  return { riskScore: Math.round(score), riskLevel };
+  const riskLevel = score >= 90 ? 'critical' : score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low';
+  return { riskScore: Math.round(score), riskLevel: riskLevel.toUpperCase() };
 }
 
 module.exports = { calculateRiskScore };
