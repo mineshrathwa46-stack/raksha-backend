@@ -10,6 +10,7 @@ const transitSessionSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'completed', 'cancelled'], default: 'active' },
   startedAt: { type: Date, default: Date.now },
   endedAt: Date,
+   destination: String,
   vehicleType: String,
   vehicleNumber: String,
   currentLocation: pointSchema,
