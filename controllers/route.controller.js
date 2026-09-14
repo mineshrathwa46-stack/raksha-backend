@@ -29,7 +29,13 @@ function normalizeCoordinate(coordinate) {
 async function calculateRoutes(req, res, next) {
   try {
     const payload = routeRequestSchema.parse(req.body);
+    console.info('[ROUTE] request received', {
+      origin: { latitude: payload.origin.latitude, longitude: payload.origin.longitude },
+      destination: { latitude: payload.destination.latitude, longitude: payload.destination.longitude },
+      mode: payload.mode
+    });
     const routes = await calculateRouteOptions(payload);
+    console.info('[ROUTE] response returned', { routeCount: routes.length });
     res.json({ routes });
   } catch (error) {
     if (error.code === 'ROUTE_PROVIDER_ERROR') {

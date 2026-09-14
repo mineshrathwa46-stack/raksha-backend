@@ -15,35 +15,51 @@ function routeProviderError(message, statusCode = 503) {
   return error;
 }
 
+function routeConfigurationError() {
+  const error = routeProviderError('Routing provider is not configured.', 503);
+  error.code = 'ROUTING_PROVIDER_NOT_CONFIGURED';
+  return error;
+}
+
 async function calculateRoutes({ origin, destination, mode = 'driving', fetchImpl = fetch }) {
   const apiKey = process.env.ORS_API_KEY;
-  if (!apiKey) throw routeProviderError('Route service temporarily unavailable.', 503);
+  if (!apiKey) throw routeConfigurationError();
 
   const baseUrl = (process.env.ORS_BASE_URL || 'https://api.heigit.org/openrouteservice/v2').replace(/\/$/, '');
   const profile = PROFILE_BY_MODE[mode] || PROFILE_BY_MODE.driving;
-  const response = await fetchImpl(`${baseUrl}/directions/${profile}/geojson`, {
-    method: 'POST',
-    headers: {
-      Authorization: apiKey,
-      'Content-Type': 'application/json',
-      Accept: 'application/geo+json, application/json'
-    },
-    body: JSON.stringify({
-      coordinates: [
-        [origin.longitude, origin.latitude],
-        [destination.longitude, destination.latitude]
-      ],
-      instructions: false,
-      elevation: false,
-      geometry: true,
-      alternative_routes: {
-        target_count: 3,
-        share_factor: 0.6,
-        weight_factor: 1.4
-      }
-    }),
-    signal: AbortSignal.timeout(20000)
-  });
+  const url = `${baseUrl}/directions/${profile}/geojson`;
+  const requestBody = {
+    coordinates: [
+      [origin.longitude, origin.latitude],
+      [destination.longitude, destination.latitude]
+    ],
+    instructions: false,
+    elevation: false,
+    geometry: true,
+    alternative_routes: {
+      target_count: 3,
+      share_factor: 0.6,
+      weight_factor: 1.4
+    }
+  };
+  console.info('[ROUTE] ORS request started', { profile, baseUrl });
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: 'POST',
+      headers: {
+        Authorization: apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/geo+json, application/json'
+      },
+      body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(20000)
+    });
+  } catch (error) {
+    console.warn('[ROUTE] ORS request failed', { profile, name: error.name });
+    throw routeProviderError('Route service temporarily unavailable.', 502);
+  }
+  console.info('[ROUTE] ORS response status', { status: response.status, profile });
 
   if (!response.ok) {
     const status = response.status === 401 || response.status === 403 ? 502 : response.status === 429 ? 429 : 503;
@@ -57,6 +73,7 @@ async function calculateRoutes({ origin, destination, mode = 'driving', fetchImp
     throw routeProviderError('Route service returned malformed data.', 502);
   }
 
+  console.info('[ROUTE] ORS response received', { featureCount: Array.isArray(payload.features) ? payload.features.length : 0 });
   if (!Array.isArray(payload.features)) {
     throw routeProviderError('No route found for this journey.', 404);
   }
@@ -81,4 +98,4 @@ async function calculateRoutes({ origin, destination, mode = 'driving', fetchImp
   return routes;
 }
 
-module.exports = { calculateRoutes, PROFILE_BY_MODE, routeProviderError };
+module.exports = { calculateRoutes, PROFILE_BY_MODE, routeProviderError, routeConfigurationError };

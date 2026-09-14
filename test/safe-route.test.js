@@ -45,7 +45,7 @@ test('ORS provider reports missing API configuration', async () => {
         destination: { latitude: 22.32, longitude: 73.17 },
         fetchImpl: async () => response({})
       }),
-      (error) => error instanceof Error && error.code === 'ROUTE_PROVIDER_ERROR'
+      (error) => error instanceof Error && error.code === 'ROUTING_PROVIDER_NOT_CONFIGURED'
     );
   } finally {
     process.env.ORS_API_KEY = previousKey;
