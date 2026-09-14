@@ -20,6 +20,8 @@ const transitSessionSchema = new mongoose.Schema({
   routeDistance: Number,
   routeDuration: Number,
   routeSafetyScore: Number,
+  routeSafetyConfidence: Number,
+  routeSafetyDataCoverage: Number,
   routeSafetyFactors: [String],
   origin: pointSchema,
   currentLocation: pointSchema,

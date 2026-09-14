@@ -19,6 +19,8 @@ const startSchema = z.object({
   routeDistance: z.number().optional(),
   routeDuration: z.number().optional(),
   routeSafetyScore: z.number().nullable().optional(),
+  routeSafetyConfidence: z.number().min(0).max(1).optional(),
+  routeSafetyDataCoverage: z.number().min(0).max(1).optional(),
   routeSafetyFactors: z.array(z.string()).optional(),
   routeWarnings: z.array(z.string()).optional()
 });
@@ -43,6 +45,8 @@ async function start(req, res, next) {
       routeDistance: data.routeDistance,
       routeDuration: data.routeDuration,
       routeSafetyScore: data.routeSafetyScore,
+      routeSafetyConfidence: data.routeSafetyConfidence,
+      routeSafetyDataCoverage: data.routeSafetyDataCoverage,
       routeSafetyFactors: data.routeSafetyFactors,
       origin: data.origin && point(data.origin),
       currentLocation: data.location && point(data.location),

@@ -11,87 +11,22 @@ Simple SIH-MVP REST API using Node.js, Express, MongoDB Atlas, Mongoose, JWT, bc
 
 The server will not start until MongoDB is reachable. AI endpoints use mock responses during development. AI signals are passed through the deterministic risk engine before final risk values are returned.
 
-## WhatsApp AI Companion
+AI endpoints use mock responses during development when `AI_MOCK_MODE=true`; no external AI credentials are required for local demonstrations.
 
-### Webhook verification
+## Safe Route
 
-- GET `/api/whatsapp/webhook`
-- Expected query params: `hub.mode=subscribe`, `hub.verify_token=<WHATSAPP_VERIFY_TOKEN>`, `hub.challenge=<challenge>`
-- Returns the challenge string when validation succeeds.
-- Returns `403` when the verification token is invalid.
+`POST /api/routes/calculate` accepts `origin`, `destination`, and `mode` (`driving` or `walking`). The backend calls OpenRouteService, requests provider-returned alternatives, evaluates each returned geometry against OpenStreetMap Overpass context and Raksha user reports, and ranks the real routes by travel time and available safety data. Flutter never calls ORS directly.
 
-Example:
+Safety values are derived from available data and are not a guarantee of personal safety. Missing providers produce unavailable factors and no fabricated safety score. Historical crime is an abstraction point for future NCRB/state datasets and is currently unavailable unless a provider is implemented at a supported granularity.
 
-GET `/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=demo-token&hub.challenge=challenge-123`
-
-Response:
-
-```text
-challenge-123
-```
-
-### Incoming webhook
-
-- POST `/api/whatsapp/webhook`
-- Accepts Meta WhatsApp Business Cloud payloads.
-- Extracts the sender, message ID, message type, text, and timestamp.
-- Ignores unsupported message types safely.
-- Prevents duplicate processing with the WhatsApp message ID.
-
-Sample payload:
-
-```json
-{
-  "entry": [
-    {
-      "changes": [
-        {
-          "value": {
-            "metadata": { "phone_number_id": "12345" },
-            "messages": [
-              {
-                "from": "919999999999",
-                "id": "wamid.HBgLM...",
-                "timestamp": "1710000000",
-                "type": "text",
-                "text": { "body": "Driver thoda ajeeb behave kar raha hai." }
-              }
-            ]
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-
-Sample response:
-
-```json
-{
-  "status": "ok",
-  "reply": "Kahan pahunchi?",
-  "risk": {
-    "riskScore": 36,
-    "riskLevel": "MEDIUM"
-  }
-}
-```
-
-### Environment variables
-
-Add these to `.env` using the template in `.env.example`:
+Environment variables:
 
 ```env
-WHATSAPP_VERIFY_TOKEN=
-WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
-WHATSAPP_API_VERSION=v20.0
-WHATSAPP_MOCK_MODE=true
-OPENAI_API_KEY=
-AI_MOCK_MODE=true
+ORS_API_KEY=
+ORS_BASE_URL=https://api.heigit.org/openrouteservice/v2
+OVERPASS_URL=https://overpass-api.de/api/interpreter
 ```
 
-### Mock mode
+User safety reports can be submitted through authenticated `POST /api/safety/reports` and read without reporter identity through `GET /api/safety/reports/nearby?lat=...&lng=...&radius=1000`.
 
-When `WHATSAPP_MOCK_MODE=true`, the backend does not call Meta and returns deterministic mock responses. When `AI_MOCK_MODE=true`, the backend uses local structured analysis without calling external AI APIs. This allows local SIH demonstrations without real secrets or external services.
+To test route calculation, set `ORS_API_KEY` in the backend `.env`, start MongoDB and the backend, then use the existing Flutter Plan Journey flow. If ORS is unavailable, the UI shows a retryable route error and does not draw a synthetic route.
