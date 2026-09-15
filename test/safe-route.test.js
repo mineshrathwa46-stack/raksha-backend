@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { calculateRoutes, routeProviderError } = require('../services/routing/openRouteServiceProvider');
 const { scoreSafety } = require('../services/safety/safetyScore.service');
 const { rankRoutes } = require('../services/route.service');
+const { getTrafficCrowdContext } = require('../services/crowd/trafficCrowd.service');
 
 function response(payload, status = 200) {
   return {
@@ -81,6 +82,47 @@ test('safety score is deterministic for identical real inputs', () => {
     crime: { available: false }
   };
   assert.deepEqual(scoreSafety(input), scoreSafety(input));
+});
+
+test('safety score exposes lighting and crowd factors when providers are available', () => {
+  const result = scoreSafety({
+    overpass: {
+      available: true,
+      facilities: [{ type: 'police' }],
+      lighting: { litSegments: 4, streetLamps: 2 },
+      safePlaces: [{ type: 'police' }],
+      source: 'OpenStreetMap Overpass',
+      timestamp: '2026-09-14T00:00:00.000Z'
+    },
+    reports: { available: false },
+    crowd: {
+      available: true,
+      score: 80,
+      level: 'low',
+      source: 'TomTom Traffic Flow',
+      timestamp: '2026-09-14T00:00:00.000Z',
+      confidence: 0.6
+    },
+    crime: { available: false }
+  });
+  assert.equal(result.factors.lighting.available, true);
+  assert.equal(result.factors.crowd.value, 80);
+  assert.match(result.positiveFactors.join(' '), /safe places|lighting|congested/i);
+});
+
+test('TomTom traffic flow is converted to a crowd proxy', async () => {
+  const previousKey = process.env.TOMTOM_API_KEY;
+  process.env.TOMTOM_API_KEY = 'test-key';
+  try {
+    const result = await getTrafficCrowdContext([[73.18, 22.3], [73.17, 22.32]], {
+      fetchImpl: async () => response({ flowSegmentData: { currentSpeed: 20, freeFlowSpeed: 40 } })
+    });
+    assert.equal(result.available, true);
+    assert.equal(result.level, 'medium');
+    assert.equal(result.score, 50);
+  } finally {
+    process.env.TOMTOM_API_KEY = previousKey;
+  }
 });
 
 test('ranking uses travel time and available safety data', () => {

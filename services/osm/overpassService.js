@@ -18,7 +18,7 @@ async function queryRouteContext(geometry, { fetchImpl = fetch } = {}) {
   if (!bounds) return { available: false, source: null, timestamp: null, facilities: [] };
 
   const overpassUrl = process.env.OVERPASS_URL || DEFAULT_OVERPASS_URL;
-  const query = `[out:json][timeout:20];(nwr[amenity~"police|hospital|clinic|pharmacy|fire_station|school|university|bus_station|fuel"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});nwr[shop](${bounds.south},${bounds.west},${bounds.north},${bounds.east}););out center tags;`;
+  const query = `[out:json][timeout:20];(nwr[amenity~"police|hospital|clinic|pharmacy|fire_station|school|university|bus_station|fuel|community_centre|social_centre"](${bounds.south},${bounds.west},${bounds.north},${bounds.east});nwr[shop](${bounds.south},${bounds.west},${bounds.north},${bounds.east});nwr[highway][lit](${bounds.south},${bounds.west},${bounds.north},${bounds.east});nwr[highway=street_lamp](${bounds.south},${bounds.west},${bounds.north},${bounds.east}););out center tags;`;
   let response;
   try {
     response = await fetchImpl(overpassUrl, {
@@ -35,15 +35,25 @@ async function queryRouteContext(geometry, { fetchImpl = fetch } = {}) {
   try {
     const payload = await response.json();
     const elements = Array.isArray(payload.elements) ? payload.elements : [];
+    const facilities = elements.map((element) => ({
+      type: element.tags?.amenity || (element.tags?.shop ? 'shop' : 'unknown'),
+      latitude: Number(element.lat ?? element.center?.lat),
+      longitude: Number(element.lon ?? element.center?.lon)
+    })).filter((facility) => Number.isFinite(facility.latitude) && Number.isFinite(facility.longitude));
+    const lightingElements = elements.filter((element) => element.tags?.highway === 'street_lamp' || element.tags?.lit === 'yes');
+    const safePlaceTypes = new Set(['police', 'hospital', 'clinic', 'pharmacy', 'fire_station', 'school', 'university', 'bus_station', 'fuel', 'community_centre', 'social_centre']);
+    const safePlaces = facilities.filter((facility) => safePlaceTypes.has(facility.type));
     return {
       available: true,
       source: 'OpenStreetMap Overpass',
       timestamp: new Date().toISOString(),
-      facilities: elements.map((element) => ({
-        type: element.tags?.amenity || (element.tags?.shop ? 'shop' : 'unknown'),
-        latitude: Number(element.lat ?? element.center?.lat),
-        longitude: Number(element.lon ?? element.center?.lon)
-      })).filter((facility) => Number.isFinite(facility.latitude) && Number.isFinite(facility.longitude))
+      facilities,
+      lighting: {
+        available: true,
+        litSegments: elements.filter((element) => element.tags?.lit === 'yes').length,
+        streetLamps: elements.filter((element) => element.tags?.highway === 'street_lamp').length
+      },
+      safePlaces
     };
   } catch (_) {
     return { available: false, source: 'OpenStreetMap Overpass', timestamp: null, facilities: [] };

@@ -25,7 +25,11 @@ Environment variables:
 ORS_API_KEY=
 ORS_BASE_URL=https://api.heigit.org/openrouteservice/v2
 OVERPASS_URL=https://overpass-api.de/api/interpreter
+TOMTOM_API_KEY=
+TOMTOM_FLOW_URL=https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json
 ```
+
+Lighting and mapped safe places come from the free OpenStreetMap Overpass API. Live crowd data is represented by current traffic-flow congestion from TomTom; it is optional and requires a TomTom developer key (free trial/free tier availability depends on the account and region). Without that key, the crowd factor is explicitly unavailable rather than estimated.
 
 User safety reports can be submitted through authenticated `POST /api/safety/reports` and read without reporter identity through `GET /api/safety/reports/nearby?lat=...&lng=...&radius=1000`.
 
